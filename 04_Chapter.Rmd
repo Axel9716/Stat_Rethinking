@@ -1,0 +1,319 @@
+---
+title: "04_Chapter"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+# Chapter 4 Lecture 1
+
+```{r}
+library(rethinking)
+data(Howell1)
+d <- Howell1[Howell1$age >= 18,]
+```
+
+
+# Build Generative model H -> W <- U
+# and simulate data
+
+```{r}
+sim_weight <- function(H, b, sd) {
+  U <- rnorm(length(H), 0, sd)
+  W <- H*b + U
+  return(W)
+}
+
+# Simulate H data
+H <- runif(300, min = 130, max = 170)
+
+# plug in H and "random" b and sd
+W <- sim_weight(H, .5, 5)
+
+plot(H, W, col = 2, lwd = 3)
+plot(W ~ H)
+```
+
+
+# Prior predictive distribution
+
+```{r}
+n <- 1e3
+a <- rnorm(n, 0,10)
+b <- runif(n, 0,1)
+plot(NULL, xlim = c(130, 170), ylim = c(50,90), xlab = "cm", ylab = "kg")
+for (i in 1:50) abline(a = a[i], b = b[i], col = 2, lwd = 2)
+```
+
+
+# Approx post dist as a multivariate gaus dist using QUAP
+
+```{r}
+
+```
+
+
+# Ch 4 Exercises
+
+# 4M1
+
+```{r}
+m41 <- function(n) {
+  sigma <- rexp(n, rate = 1)
+  mu <- rnorm(n, 0, 1)
+  y <- rnorm(n, mu, sigma)
+  return(y)
+}
+
+test <- m41(1e4)
+dens(test)
+```
+
+
+# 4M2
+
+```{r}
+# data not given, but this should be correct formula
+m42 <- quap(alist(
+  y ~ dnorm(mu, sigma),
+  mu ~ dnorm(0,1),
+  sigma ~ dexp(1)
+))
+```
+
+
+# 4M4
+
+b can be any value from 1 to 24 equally, because if a = 0, then b*Y should be bare minimum 1 and maximum 72. alpha should be close to 0 and can vary maximum 100 inches. sigma is the variance of H distribution and height should not vary more than 100 inches overall.
+
+H ~ Normal(mu, sigma)
+
+mu = a + b*Y
+
+Y = Discrete Uniform(1, 2, 3) # actually don't need to include this because Y is given
+
+b ~ Uniform(1, 24)
+
+alpha ~ Normal(0, 10)
+
+sigma ~ Normal(0, 10) # Change 10 to 8 for 4M6
+
+
+# 4H1
+
+```{r}
+#Extract training data
+data("Howell1")
+adults <- Howell1[Howell1$age > 18, ]
+
+H <- adults$height
+W <- adults$weight
+
+plot(H ~ W)
+
+# 1. Data story: what is the association between weight and height, such that we can predict H using W?
+
+# 2a. Scientific Model: changes in H tend to be proportional to changes in W.
+# 2b. DAG : W -> H <- U
+
+
+# 3. Build and test generative model: H is proportional to W plus some error that we assume is norm dist
+
+# H = a + b*W
+
+# making b norm dist assumes there is error coming in from growth pattern in W (I think)
+sim_height <- function(W, sigma) {
+  a <- rnorm(length(W), 0, sigma)
+  b <- rnorm(length(W), 3.5, 1) # this was based off the mean and sd of H/W in Howell's data. Maybe its not sci right?
+  H <- a + b*W
+  return(H)
+}
+
+W <- runif(1e3, 30, 65) #generate synthetic W within our observation space
+
+H <- sim_height(W, 5)
+
+dens(H)
+plot(W, H)
+
+
+# 4. Build and test estimator
+
+w_post <- quap(alist(
+  H ~ dnorm(mu, sigma),
+  mu <- a + b*W,
+  a ~ dnorm(0,10),
+  b ~ dnorm(3.5, 1),
+  sigma ~ dnorm(0, 10)
+), data = list(H=H, W=W))
+
+precis(w_post) # Seems reasonable
+
+
+# 5. Analyze data and make predictions
+
+H <- adults$height
+W <- adults$weight
+
+w_post <- quap(alist(
+  H ~ dnorm(mu, sigma),
+  mu <- a + b*W,
+  a ~ dnorm(0,10),
+  b ~ dnorm(3.5, 1),
+  sigma ~ dnorm(0, 10)
+), data = list(H=H, W=W))
+
+precis(w_post)
+
+w_ppd <- extract.samples(w_post) # I believe this is the PPD becuase we're sampling the post dist, but not sure
+
+plot(W, H, col = 2, lwd = 2)
+for (i in 1:20)
+  abline(a = w_ppd$a[i], b = w_ppd$b[i], lwd = 1)
+
+
+# Making predictions using mean of ppd... come back to this
+a <- mean(w_ppd$a)
+a_lt <- PI(w_ppd$a)["5%"]
+a_ht <- PI(w_ppd$a)["94%"]
+
+b <- mean(w_ppd$b)
+b_lt <- PI(w_ppd$b)["5%"]
+b_ht <- PI(w_ppd$b)["94%"]
+
+
+W = c(46.95, 43.72, 64.78, 32.59, 54.63)
+
+pred_table <- data.frame(
+  ind = seq(1, 5, length.out = 5),
+  W = W,
+  H = a + b*W,
+  H_5.5 = a_lt + b_lt*W,
+  H_94.5 = a_ht + b_ht*W)
+
+pred_table
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
