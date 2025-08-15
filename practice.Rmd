@@ -1,0 +1,504 @@
+---
+title: "practice"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+globe.qa <- quap(
+  alist(
+    W ~ dbinom(W+L, p),
+    p ~ dunif(0,1)
+  ),
+  data = list(W=6,L=3) )
+
+precis(globe.qa)
+
+# analytical calculation
+W <- 6
+L <- 3
+curve( dbeta( x , W+1 , L+1 ) , from=0 , to=1 )
+# quadratic approximation
+curve( dnorm( x , 0.67 , 0.16 ) , lty=2 , add=TRUE )
+```
+
+```{r}
+n_samples <- 1000
+p <- rep( NA , n_samples )
+p[1] <- 0.5
+W <- 6
+L <- 3
+for ( i in 2:n_samples ) {
+p_new <- rnorm( 1 , p[i-1] , 0.1 )
+if ( p_new < 0 ) p_new <- abs( p_new )
+if ( p_new > 1 ) p_new <- 2 - p_new
+q0 <- dbinom( W , W+L , p[i-1] )
+q1 <- dbinom( W , W+L , p_new )
+p[i] <- ifelse( runif(1) < q1/q0 , p_new , p[i-1] )
+}
+
+dens( p , xlim=c(0,1) )
+curve( dbeta( x , W+1 , L+1 ) , lty=2 , add=TRUE )
+```
+
+
+
+```{r}
+post_samples <- rbeta(1e4, 6+1, 3+1)
+w <- rbinom(1e4, size=90000, prob=0.6666)
+
+hist(w, freq = FALSE)
+hist(post_samples, freq = TRUE)
+```
+
+
+
+# Chapter 1
+
+
+#Grid Approximation
+
+```{r}
+pgrid <- seq(0,1, length.out=100)
+prior <- rep(1, 100)
+likelihood <- dbinom(6,9, prob = pgrid)
+unstd_posterior <- likelihood*pgrid
+posterior <- unstd_posterior/sum(unstd_posterior)
+
+plot(pgrid, prior, type = "b")
+
+sum(posterior)
+```
+
+# Quadratic Approximation
+
+```{r}
+globe_qa <- quap(
+  alist(
+    W ~ dbinom(W+L, p),
+    p ~ dunif(0,1)
+  ),
+  data = list(W=6,L=3)
+)
+
+precis(globe_qa)
+
+globe_param <- precis(globe_qa)
+```
+
+
+```{r}
+W <- 6
+L <- 3
+curve(dbeta(x, 7, 4), from = 0, to = 1)
+curve(dbeta(x, W+1, L+1), from = 0, to = 1)
+curve(dnorm(x, globe_param[,1], globe_param[,2]), add = TRUE, lty = 9)
+```
+
+
+#Markov Chain Monte Carlo
+
+```{r}
+n_samples <- 100000
+p <- rep(NA, n_samples)
+p[1] <- 0.5
+W <- 20
+L <- 1
+
+for ( i in 2:n_samples ) {
+p_new <- rnorm( 1 , p[i-1] , 0.1 ) # takes one sample from norm dist with mean p[i-1] and sd 0.1
+if ( p_new < 0 ) p_new <- abs( p_new ) # makes negative p's positive
+if ( p_new > 1 ) p_new <- 2 - p_new # keeps p between 0-1
+q0 <- dbinom( W , W+L , p[i-1] ) 
+q1 <- dbinom( W , W+L , p_new )
+p[i] <- ifelse( runif(1) < q1/q0 , p_new , p[i-1] )
+}
+
+```
+
+
+```{r}
+dens(p, xlim = c(0,1))
+curve(dbeta(x, W+1, L+1), add = TRUE, lty = 2)
+```
+
+
+# 2M2
+
+```{r}
+pgrid <- seq(0,1, length.out=100)
+prior <- ifelse(pgrid < .5, 0, 1)
+likelihood <- dbinom(5, 7, prob=pgrid)
+unstd_posterior <- likelihood*prior
+posterior <- unstd_posterior/sum(unstd_posterior)
+
+plot(pgrid, prior)
+```
+
+
+
+
+# Chapter 3
+
+# Sample Grid approximated Posterior
+
+```{r}
+pgrid <- seq(0,1, length.out = 100)
+prior <- rep(1,100)
+likelihood <- dbinom(6,9, prob = pgrid)
+unstd_posterior <- likelihood*prior
+posterior <-  unstd_posterior/sum(unstd_posterior)
+
+grid_sample <- sample(pgrid, prob = posterior, 1000, replace = TRUE)
+plot(grid_sample)
+dens(grid_sample)
+
+curve(dbeta(x, 7, 4), from =0, to = 1, add = TRUE, lty = 2)
+```
+
+
+# Summarizing Samples from Posterior
+
+# Intervals of defined boundaries
+
+```{r}
+sum(posterior[pgrid < .5]) #Posterior probability below 0.5 using grid approximated posterior
+
+
+sum(grid_sample < .5)/ 1000 # Using samples of posterior
+
+sum(grid_sample > .25 & grid_sample < .75)/ 1e3 # Posterior probability between .25 and .75
+
+
+quantile(grid_sample, .25) #gives boundary for lower 25% of posterior
+quantile(grid_sample, c(.25, .75)) #middle 50% of data
+
+```
+
+
+# Intervals of defined mass
+
+```{r}
+PI(grid_sample, prob = .5) #middle 50% with equal tails
+HPDI(grid_sample, prob = .5) #highest density 50%
+```
+
+
+# Point Estimates
+
+```{r}
+pgrid[which.max(posterior)] # Mode of posterior
+
+chainmode(grid_sample) # Mode of sampled posterior
+mean(grid_sample)
+median(grid_sample)
+```
+
+
+# Minimizing Loss
+
+```{r}
+# Probability of pgrid * loss if true value is pgrid
+sum(posterior * abs(.5-pgrid))
+
+loss <- sapply(pgrid, function(x) sum(posterior * abs(x - pgrid)))
+
+pgrid[which.min(loss)] # returns median
+
+
+
+# Function for mean
+loss <- sapply(pgrid, function(x) sum(posterior * (x - pgrid)^2))
+
+pgrid[which.min(loss)]
+
+
+```
+
+
+# Simulating Model by sampling appropriate distribution with prior for parameter value
+
+```{r}
+globe_toss <- rbinom(1e5, 10, prob = 0.7)
+
+table(globe_toss)/1e5
+
+simplehist(globe_toss)
+```
+
+# Alternate way to simulate globe tossing model
+
+```{r}
+sim_globe <- function(N = 9, p = 0.7) {
+  sample(c("W", "L"), size = N, replace = TRUE, prob = c(p, 1-p))
+}
+
+sim_globe()
+```
+
+# Build an estimator with sim_globe
+
+```{r}
+compute_posterior <- function(the_sample, poss = c(0, .25, .50, .75, 1)) {
+  W <- sum(the_sample == "W")
+  L <- sum(the_sample == "L")
+  ways <- sapply(poss, function(p) ((length(poss) - 1)*p)^W * ((length(poss)-1)*(1-p))^L)
+  post <- ways/sum(ways)
+  bars <- sapply(post, function(q) make_bar(q))
+  data.frame(poss, ways, post=round(post, 3), bars)
+}
+
+compute_posterior(sim_globe())
+
+pgrid <- seq(0,1, length.out = 100)
+test <- compute_posterior(sim_globe(), poss = pgrid)
+plot(test$poss, test$post)
+```
+
+
+# Building Posterior Predictive Disribution using samples from posterior
+
+```{r}
+dens(grid_sample)
+
+ppd <- rbinom(1e4, size = 9, prob = grid_sample)
+
+simplehist(ppd)
+
+table(ppd)/1e4
+
+```
+
+
+
+# Chapter 4 Lecture 1
+
+```{r}
+library(rethinking)
+data(Howell1)
+d <- Howell1[Howell1$age >= 18,]
+```
+
+
+# Build Generative model H -> W <- U
+# and simulate data
+
+```{r}
+sim_weight <- function(H, b, sd) {
+  U <- rnorm(length(H), 0, sd)
+  W <- H*b + U
+  return(W)
+}
+
+# Simulate H data
+H <- runif(300, min = 130, max = 170)
+
+# plug in H and "random" b and sd
+W <- sim_weight(H, .5, 5)
+
+plot(H, W, col = 2, lwd = 3)
+plot(W ~ H)
+```
+
+
+# Prior predictive distribution
+
+```{r}
+n <- 1e3
+a <- rnorm(n, 0,10)
+b <- runif(n, 0,1)
+plot(NULL, xlim = c(130, 170), ylim = c(50,90), xlab = "cm", ylab = "kg")
+for (i in 1:50) abline(a = a[i], b = b[i], col = 2, lwd = 2)
+```
+
+
+# Approx post dist as a multivariate gaus dist using QUAP
+
+```{r}
+
+```
+
+
+# Ch 4 Exercises
+
+# 4M1
+
+```{r}
+m41 <- function(n) {
+  sigma <- rexp(n, rate = 1)
+  mu <- rnorm(n, 0, 1)
+  y <- rnorm(n, mu, sigma)
+  return(y)
+}
+
+test <- m41(1e4)
+dens(test)
+```
+
+
+# 4M2
+
+```{r}
+# data not given, but this should be correct formula
+m42 <- quap(alist(
+  y ~ dnorm(mu, sigma),
+  mu ~ dnorm(0,1),
+  sigma ~ dexp(1)
+))
+```
+
+
+# 4M4
+
+b can be any value from 1 to 24 equally, because if a = 0, then b*Y should be bare minimum 1 and maximum 72. alpha should be close to 0 and can vary maximum 100 inches. sigma is the variance of H distribution and height should not vary more than 100 inches overall.
+
+H ~ Normal(mu, sigma)
+
+mu = a + b*Y
+
+Y = Discrete Uniform(1, 2, 3) # actually don't need to include this because Y is given
+
+b ~ Uniform(1, 24)
+
+alpha ~ Normal(0, 10)
+
+sigma ~ Normal(0, 10) # Change 10 to 8 for 4M6
+
+
+# 4H1
+
+```{r}
+#Extract training data
+data("Howell1")
+adults <- Howell1[Howell1$age > 18, ]
+
+H <- adults$height
+W <- adults$weight
+
+plot(H ~ W)
+
+# 1. Data story: what is the association between weight and height, such that we can predict H using W?
+
+# 2a. Scientific Model: changes in H tend to be proportional to changes in W.
+# 2b. DAG : W -> H <- U
+
+
+# 3. Build and test generative model: H is proportional to W plus some error that we assume is norm dist
+
+# H = a + b*W
+
+# making b norm dist assumes there is error coming in from growth pattern in W (I think)
+sim_height <- function(W, sigma) {
+  a <- rnorm(length(W), 0, sigma)
+  b <- rnorm(length(W), 3.5, 1) # this was based off the mean and sd of H/W in Howell's data. Maybe its not sci right?
+  H <- a + b*W
+  return(H)
+}
+
+W <- runif(1e3, 30, 65) #generate synthetic W within our observation space
+
+H <- sim_height(W, 5)
+
+dens(H)
+plot(W, H)
+
+
+# 4. Build and test estimator
+
+w_post <- quap(alist(
+  H ~ dnorm(mu, sigma),
+  mu <- a + b*W,
+  a ~ dnorm(0,10),
+  b ~ dnorm(3.5, 1),
+  sigma ~ dnorm(0, 10)
+), data = list(H=H, W=W))
+
+precis(w_post) # Seems reasonable
+
+
+# 5. Analyze data and make predictions
+
+H <- adults$height
+W <- adults$weight
+
+w_post <- quap(alist(
+  H ~ dnorm(mu, sigma),
+  mu <- a + b*W,
+  a ~ dnorm(0,10),
+  b ~ dnorm(3.5, 1),
+  sigma ~ dnorm(0, 10)
+), data = list(H=H, W=W))
+
+precis(w_post)
+
+w_ppd <- extract.samples(w_post) # I believe this is the PPD becuase we're sampling the post dist, but not sure
+
+plot(W, H, col = 2, lwd = 2)
+for (i in 1:20)
+  abline(a = w_ppd$a[i], b = w_ppd$b[i], lwd = 1)
+
+
+# Making predictions using mean of ppd... come back to this
+a <- mean(w_ppd$a)
+a_lt <- PI(w_ppd$a)["5%"]
+a_ht <- PI(w_ppd$a)["94%"]
+
+b <- mean(w_ppd$b)
+b_lt <- PI(w_ppd$b)["5%"]
+b_ht <- PI(w_ppd$b)["94%"]
+
+
+W = c(46.95, 43.72, 64.78, 32.59, 54.63)
+
+pred_table <- data.frame(
+  ind = seq(1, 5, length.out = 5),
+  W = W,
+  H = a + b*W,
+  H_5.5 = a_lt + b_lt*W,
+  H_94.5 = a_ht + b_ht*W)
+
+pred_table
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
