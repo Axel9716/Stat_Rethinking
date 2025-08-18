@@ -16,13 +16,21 @@ d <- Howell1[Howell1$age >= 18,]
 ```
 
 
-# Build Generative model H -> W <- U
+# Different ways to make normal distributions:
+
+
+
+
+
+
+# Build Generative model H = a + b*W 
+# based on scientific model (DAG) H -> W <- U
 # and simulate data
 
 ```{r}
 sim_weight <- function(H, b, sd) {
-  U <- rnorm(length(H), 0, sd)
-  W <- H*b + U
+  a <- rnorm(length(H), 0, sd)
+  W <- H*b + a
   return(W)
 }
 
@@ -37,7 +45,25 @@ plot(W ~ H)
 ```
 
 
-# Prior predictive distribution
+# Prior Predictive Distribution
+
+```{r}
+#simulate data using generatve model and priors
+#generative model: h ~ norm(mu, sigma)
+#priors: mu ~ norm(170, 20)
+#      : sigma ~ unif(0, 50)
+samp_mu <- rnorm(1e4, 170, 20)
+samp_sigma <- runif(1e4, 0, 50)
+samp_h <- rnorm(1e4, samp_mu, samp_sigma)
+dens(samp_h)
+
+```
+
+
+
+# Prior predictive distribution with lines
+
+This 
 
 ```{r}
 n <- 1e3
