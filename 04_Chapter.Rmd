@@ -96,15 +96,6 @@ for (i in 1:50) abline(a = a[i], b = b[i], col = 2, lwd = 2)
 
 
 
-
-
-
-
-
-
-
-
-
 # Ch 4 Exercises
 
 # 4M1
@@ -126,11 +117,11 @@ dens(test)
 
 ```{r}
 # data not given, but this should be correct formula
-m42 <- quap(alist(
-  y ~ dnorm(mu, sigma),
-  mu ~ dnorm(0,1),
-  sigma ~ dexp(1)
-))
+#m42 <- quap(alist(
+#  y ~ dnorm(mu, sigma),
+#  mu ~ dnorm(0,1),
+#  sigma ~ dexp(1)
+#))
 ```
 
 
@@ -148,7 +139,7 @@ b ~ Uniform(1, 24)
 
 alpha ~ Normal(0, 10)
 
-sigma ~ Normal(0, 10) # Change 10 to 8 for 4M6
+sigma ~ Uniform(0, 10) # Change 10 to 8 for 4M6
 
 
 # 4H1
@@ -176,14 +167,14 @@ plot(H ~ W)
 # making b norm dist assumes there is error coming in from growth pattern in W (I think)
 sim_height <- function(W, sigma) {
   a <- rnorm(length(W), 0, sigma)
-  b <- rnorm(length(W), 3.5, 1) # this was based off the mean and sd of H/W in Howell's data. Maybe its not sci right?
+  b <- rnorm(length(W), 3.5, 1) # this was based off the mean and sd of H/W in Howell's data. Not a good idea
   H <- a + b*W
   return(H)
 }
 
 W <- runif(1e3, 30, 65) #generate synthetic W within our observation space
 
-H <- sim_height(W, 5)
+H <- sim_height(W, 10)
 
 dens(H)
 plot(W, H)
@@ -196,7 +187,7 @@ w_post <- quap(alist(
   mu <- a + b*W,
   a ~ dnorm(0,10),
   b ~ dnorm(3.5, 1),
-  sigma ~ dnorm(0, 10)
+  sigma ~ dunif(0, 50) #changed from dunif(0,10) so quap would run. In reality, my gen model is probably really bad
 ), data = list(H=H, W=W))
 
 precis(w_post) # Seems reasonable
@@ -212,7 +203,7 @@ w_post <- quap(alist(
   mu <- a + b*W,
   a ~ dnorm(0,10),
   b ~ dnorm(3.5, 1),
-  sigma ~ dnorm(0, 10)
+  sigma ~ dunif(0, 10)
 ), data = list(H=H, W=W))
 
 precis(w_post)
@@ -224,7 +215,6 @@ for (i in 1:20)
   abline(a = w_ppd$a[i], b = w_ppd$b[i], lwd = 1)
 
 
-# Making predictions using mean of ppd... come back to this
 a <- mean(w_ppd$a)
 a_lt <- PI(w_ppd$a)["5%"]
 a_ht <- PI(w_ppd$a)["94%"]
@@ -243,7 +233,56 @@ pred_table <- data.frame(
   H_5.5 = a_lt + b_lt*W,
   H_94.5 = a_ht + b_ht*W)
 
-pred_table
+round(pred_table, 2)
+```
+
+
+# 4H2
+
+```{r}
+d2 <- Howell1[Howell1$age < 18,]
+
+# linear regression using adult model in quap
+h42_list <- alist(height ~ dnorm(mu, sigma),
+                  mu <- a + b*weight,
+                  a ~ dnorm(0, 10),
+                  b ~ dnorm(3.5, 1),
+                  sigma ~ dunif(0,10))
+
+h42 <- quap(h42_list, data = d2)
+
+
+# When weight is 0, average height is 57 cm
+# Every 10 kg increase in weight, results in +27.7 cm of height on average
+# 95% of height falls between +/- 16cm of the mean height
+precis(h42)
+
+# Almost same as above, but with histogram
+post <- extract.samples(h42)
+precis(post)
+
+
+
+# Create regression line with interval
+weight_seq <- seq(from = min(d2$weight), to = max(d2$weight), by = 1)
+mu <- link(h42, data = data.frame(weight = weight_seq))
+
+mu_mean <- apply(mu, 2, mean)
+mu_PI <- apply(mu, 2, PI, prob = .89)
+
+
+# Plot real data with regression line overlayed
+plot(d2$weight, d2$height, col = col.alpha(rangi2, .5), xlab = "weight (kg)", ylab = "height (cm)")
+mtext("Age < 18")
+
+lines(weight_seq, mu_mean)
+shade(mu_PI, weight_seq)
+
+
+# The model does a bad job of predicting most weights because it doesnt follow the curvature 
+# of the relationship between height and weight. It would be better to fit a model with 
+# quadratic terms or use splines.
+
 ```
 
 
