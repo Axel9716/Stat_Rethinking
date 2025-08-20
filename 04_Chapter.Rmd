@@ -60,7 +60,6 @@ dens(samp_h)
 ```
 
 
-
 # Prior predictive distribution with lines
 
 This 
@@ -73,12 +72,37 @@ plot(NULL, xlim = c(130, 170), ylim = c(50,90), xlab = "cm", ylab = "kg")
 for (i in 1:50) abline(a = a[i], b = b[i], col = 2, lwd = 2)
 ```
 
+# Posterior predictive distribution
+
+```{r}
+
+```
+
+
 
 # Approx post dist as a multivariate gaus dist using QUAP
 
 ```{r}
 
 ```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # Ch 4 Exercises
