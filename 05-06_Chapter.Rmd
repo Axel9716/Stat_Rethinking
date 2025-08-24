@@ -62,21 +62,3 @@ library(rethinking)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

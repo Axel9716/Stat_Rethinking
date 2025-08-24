@@ -1,8 +1,7 @@
 ---
 title: "04_Chapter"
+author: "Alex Ptacek"
 output: html_document
-editor_options: 
-  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
