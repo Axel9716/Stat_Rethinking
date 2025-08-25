@@ -12,10 +12,17 @@ knitr::opts_chunk$set(message = FALSE,
 
 ```{r}
 library(rethinking)
-
 ```
 
 
+
+# Chapter 5-6 Lecture 1
+
+# Simulating fork confound with bernoulli distribution
+
+```{r}
+
+```
 
 
 
